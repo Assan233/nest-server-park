@@ -1,9 +1,13 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, HttpCode } from '@nestjs/common';
 
 @Controller('user')
 export class UserController {
   @Get('info')
+  @HttpCode(200)
   getUserInfo() {
-    return 'This action returns user info';
+    return {
+      code: 200,
+      message: 'This action returns user info',
+    };
   }
 }
