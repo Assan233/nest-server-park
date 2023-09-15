@@ -2,7 +2,7 @@ import { SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
 import { SOCKET_EVENTS } from '@/const';
 
-const roomId = 888;
+const roomId = 'assan-live-room';
 
 @WebSocketGateway(7001, {
   cors: true,
@@ -12,10 +12,10 @@ export class SocketGateway {
   /** ===== 建立信令服务连接 ====== */
   /**
    * 创建房间
-   * @param {any} client:any
+   * @param {Socket} client:Socket
    */
   @SubscribeMessage(SOCKET_EVENTS.createRoom)
-  handleCreateRoom(client: any) {
+  handleCreateRoom(client: Socket) {
     // 创建房间 (首次加入就是创建)
     client.join(roomId);
     client.emit(SOCKET_EVENTS.createRoom, roomId);
@@ -23,7 +23,7 @@ export class SocketGateway {
 
   /**
    * 加入房间
-   * @param {any} client:any
+   * @param {Socket} client:Socket
    * @param {number} roomId:number
    */
   @SubscribeMessage(SOCKET_EVENTS.connectRoom)
@@ -34,21 +34,10 @@ export class SocketGateway {
     console.log('socket rooms:', client.rooms);
   }
 
-  /**
-   * 接收到推送的视频流
-   * @param {Socket} client:any
-   */
-  @SubscribeMessage(SOCKET_EVENTS.postMedia)
-  handlePostMedia(client: Socket, data: { roomId: string; media: any }) {
-    // 将接收到的视频流 推送到 房间内所有成员
-    const { roomId, media } = data;
-    client.to(roomId).emit(SOCKET_EVENTS.receiveMedia, media);
-  }
-
   /** ===== 媒体协商 ====== */
   /**
    * 接收到发起者推送的SDP
-   * @param {any} client:any
+   * @param {Socket} client:any
    * @param {number} data:{roomId:number;media:any}
    */
   @SubscribeMessage(SOCKET_EVENTS.postOfferSDP)
@@ -58,13 +47,13 @@ export class SocketGateway {
   ) {
     // 将 offerSDP 推送到 房间内所有成员
     const { roomId } = data;
-    console.log(data.roomId, SOCKET_EVENTS.receiveOfferSDP);
+    // console.log(data.roomId, SOCKET_EVENTS.receiveOfferSDP);
     client.to(roomId).emit(SOCKET_EVENTS.receiveOfferSDP, data);
   }
 
   /**
    * 接收到 应答者 推送的SDP
-   * @param {any} client:any
+   * @param {Socket} client:any
    * @param {number} data:{roomId:number;media:any}
    */
   @SubscribeMessage(SOCKET_EVENTS.postAnswerSDP)
@@ -74,8 +63,41 @@ export class SocketGateway {
   ) {
     // 将 answerSDP 推送到 房间内所有成员
     const { roomId } = data;
-    console.log(data, 'handlePostOfferSDP');
+    // console.log(data, 'handlePostOfferSDP');
 
     client.to(roomId).emit(SOCKET_EVENTS.receiveAnswerSDP, data);
+  }
+
+  /** ===== 网络协商 ====== */
+  /**
+   * 广播OfferCandidate（offer网络候选信息）
+   * @param {any} client:any
+   * @param {RTCIceCandidate} candidate: offer网络候选信息
+   */
+  @SubscribeMessage(SOCKET_EVENTS.offerCandidate)
+  handleOfferCandidate(
+    client: Socket,
+    data: { candidate: RTCIceCandidate; roomId: string },
+  ) {
+    console.log('offerCandidate', data);
+    // 将 offerCandidate 推送到 房间内所有成员
+    const { roomId } = data;
+    client.to(roomId).emit(SOCKET_EVENTS.offerCandidate, data);
+  }
+
+  /**
+   * 广播answerCandidate
+   * @param {any} client:any
+   * @param {RTCIceCandidate} candidate: answerCandidate
+   */
+  @SubscribeMessage(SOCKET_EVENTS.answerCandidate)
+  handleAnswerCandidate(
+    client: Socket,
+    data: { candidate: RTCIceCandidate; roomId: string },
+  ) {
+    console.log('answerCandidate');
+    // 将 answerCandidate 推送给主播（只有他会监听事件 answerCandidate）
+    const { roomId } = data;
+    client.to(roomId).emit(SOCKET_EVENTS.answerCandidate, data);
   }
 }
